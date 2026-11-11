@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lsk-otc-production
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nolet7/lsk-enterprise-agentic-order-to-cash-fde.git
+    targetRevision: production
+    path: infra/helm/lsk
+    helm:
+      valueFiles: [values.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lsk
+  syncPolicy:
+    syncOptions: [CreateNamespace=true]

@@ -1,0 +1,18 @@
+image:
+  repository: us-central1-docker.pkg.dev/REPLACE_PROJECT/lsk-otc/api
+  tag: "REPLACE_WITH_PINNED_SHA"
+  pullPolicy: IfNotPresent
+replicas: 2
+serviceAccount:
+  name: lsk-api
+  gcpEmail: REPLACE_SERVICE_ACCOUNT_EMAIL
+config:
+  authMode: oidc
+  oidcIssuer: https://REPLACE_ISSUER/realms/lsk
+  oidcAudience: lsk-api
+  oidcJwksUrl: https://REPLACE_ISSUER/realms/lsk/protocol/openid-connect/certs
+  allowedOrigins: https://REPLACE_PORTAL_HOST
+  databaseUrlSecret: lsk-api-credentials
+resources:
+  requests: {cpu: "250m", memory: "512Mi"}
+  limits: {cpu: "1000m", memory: "1Gi"}
