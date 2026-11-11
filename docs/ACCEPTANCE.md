@@ -1,0 +1,3 @@
+# Evidence-based acceptance
+Legacy read/write API tests pass; cross-tenant exposure=0; prices/status equal system-of-record fixtures=100%; unauthorized writes denied=100% hard gate; citation-support >=95% target; E2E task success >=90% target; p95 read-only agent latency <=5s target under stated test conditions; measure tokens/cost per interaction; ERP outage must fail closed; pilot UAT >=90% target; successful backup restore/rollback and security signoff before production.
+All thresholds are proposed pilot gates, **not actual observed results**. Capture test run command, environment, timestamp, results and failed cases.

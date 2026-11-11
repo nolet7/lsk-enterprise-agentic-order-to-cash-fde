@@ -1,0 +1,2 @@
+# Setup
+On poc branch: `cp .env.example .env && docker compose up --build -d`; portal http://localhost:18473 and API docs http://localhost:18474/docs. Run `docker compose exec api pytest -q`. Set MODEL_API_BASE, MODEL_NAME, MODEL_API_KEY for a real OpenAI-compatible model; never commit credentials. Pilot/production add documentation and templates; cloud deployment unverified. Docker is required to execute Compose.
