@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: lsk-api
+    static_configs:
+      - targets: ["api:18474"]
+    metrics_path: /metrics

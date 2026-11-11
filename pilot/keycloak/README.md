@@ -1,0 +1,3 @@
+# Keycloak setup
+Create realm `lsk-pilot`, confidential/public clients according to portal architecture, audience `lsk-api`, issuer `http://localhost:18480/realms/lsk-pilot` for **local-only test**, assign signed roles `lsk-buyer`/`lsk-csr`, and protocol mappers `tenant_id`, `customer_id` from verified user attributes. Enable PKCE S256 for browser public client. Set AUTH_MODE=oidc, OIDC_ISSUER, OIDC_AUDIENCE=lsk-api, OIDC_JWKS_URL, OIDC_ALLOW_HTTP_LOCAL=true for a local Keycloak host. Production requires HTTPS and secret management.
+A realm JSON export and proper user provisioning/claim mappers remain setup work; do not treat this document as a functional SSO deployment. Signed tenant claims must only be admin-managed, not user-writable.

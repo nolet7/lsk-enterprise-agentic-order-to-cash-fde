@@ -1,0 +1,13 @@
+groups:
+- name: lsk-pilot
+  rules:
+  - alert: LskAPIDown
+    expr: up{job="lsk-api"} == 0
+    for: 2m
+    labels: {severity: critical}
+    annotations: {summary: "LSK API metrics target unavailable"}
+  - alert: LskHighTraffic
+    expr: sum(rate(lsk_api_requests_total[5m])) > 100
+    for: 5m
+    labels: {severity: warning}
+    annotations: {summary: "Inspect synthetic pilot traffic"}

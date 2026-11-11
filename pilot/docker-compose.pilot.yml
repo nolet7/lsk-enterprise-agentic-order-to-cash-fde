@@ -1,0 +1,17 @@
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: replace-local-only
+    ports: ["18480:8080"]
+  temporal:
+    image: temporalio/auto-setup:1.27.2
+    environment:
+      DB: postgresql
+      POSTGRES_SEEDS: db
+      POSTGRES_USER: lsk
+      POSTGRES_PWD: lsk-local-only
+    depends_on: [db]
+    ports: ["18481:7233"]
