@@ -1,0 +1,3 @@
+# Relational schema (POC)
+Product(id,name,uom), Contract(tenant_id,customer_id,product_id,unit_price), Stock(tenant_id,product_id,available), Order(id,tenant_id,customer_id,product_id,quantity,unit_price,status,nonce_hash,created_at), Invoice(id,tenant_id,customer_id,order_id,amount,status), Fulfillment(id,tenant_id,order_id,event,at), Ticket(id,tenant_id,customer_id,subject,status), Idempotency(tenant_id,actor_id,idem_key,draft_id,order_id), Audit(id,tenant_id,actor,action,resource,timestamp).
+POC uses SQLAlchemy create_all for bootstrap. Production requires Alembic versioned migrations and enforced foreign keys, transaction-bound isolation and security review.
