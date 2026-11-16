@@ -2,7 +2,7 @@
 import os,secrets
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel,Field
-from sqlalchemy import Column,String,select
+from sqlalchemy import Column,String,select,update
 from sqlalchemy.orm import Session
 from .main import Base, app, get_db, identity, Audit, audit, now
 
@@ -36,10 +36,17 @@ def approvals(db:Session=Depends(get_db),auth=Depends(identity)):
 @router.post("/api/pilot/approvals/{approval_id}/decision")
 def decide(approval_id:str,data:DecideIn,db:Session=Depends(get_db),auth=Depends(identity)):
     if auth[3]!="csr":raise HTTPException(403,"CSR approval required")
-    row=db.get(Approval,approval_id)
-    if not row or row.tenant_id!=auth[0]:raise HTTPException(404,"Not found")
-    if row.status!="pending":raise HTTPException(409,"Already decided")
-    row.status="approved" if data.decision=="approve" else "rejected"
-    row.approver=auth[1]
-    audit(db,auth,"approval_"+row.status,row.id);db.commit()
-    return {"id":row.id,"status":row.status}
+    new_status="approved" if data.decision=="approve" else "rejected"
+    # Compare-and-set: concurrent CSR requests cannot both approve a pending request.
+    result=db.execute(update(Approval).where(
+        Approval.id==approval_id,
+        Approval.tenant_id==auth[0],
+        Approval.status=="pending",
+    ).values(status=new_status,approver=auth[1]))
+    if result.rowcount!=1:
+        exists=db.scalar(select(Approval.id).where(Approval.id==approval_id,Approval.tenant_id==auth[0]))
+        db.rollback()
+        raise HTTPException(409 if exists else 404,"Already decided" if exists else "Not found")
+    audit(db,auth,"approval_"+new_status,approval_id)
+    db.commit()
+    return {"id":approval_id,"status":new_status}
