@@ -34,6 +34,7 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports: [{containerPort: 18474, name: http}]
         env:
+        - {name: APP_ENV, value: "production"}
         - {name: AUTH_MODE, value: {{ .Values.config.authMode | quote }}}
         - {name: OIDC_ISSUER, value: {{ .Values.config.oidcIssuer | quote }}}
         - {name: OIDC_AUDIENCE, value: {{ .Values.config.oidcAudience | quote }}}
@@ -43,7 +44,7 @@ spec:
           valueFrom:
             secretKeyRef: {name: {{ .Values.config.databaseUrlSecret }}, key: DATABASE_URL}
         startupProbe: {httpGet: {path: /health, port: http}, failureThreshold: 30, periodSeconds: 5}
-        readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10, timeoutSeconds: 3}
+        readinessProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 10, timeoutSeconds: 3}
         livenessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 20, timeoutSeconds: 3}
         resources:
 {{ toYaml .Values.resources | indent 10 }}

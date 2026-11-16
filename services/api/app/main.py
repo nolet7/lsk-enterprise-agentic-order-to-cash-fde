@@ -12,7 +12,7 @@ from typing import Literal
 from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import create_engine, Column, String, Integer, Numeric, ForeignKey, UniqueConstraint, select
+from sqlalchemy import create_engine, Column, String, Integer, Numeric, ForeignKey, UniqueConstraint, select, text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 from fastapi.responses import Response
@@ -106,6 +106,10 @@ def seed(db):
     db.commit()
 @asynccontextmanager
 async def lifespan(app):
+    if os.getenv('APP_ENV', 'local').lower() in ('production', 'pilot') and os.getenv('AUTH_MODE', 'demo') != 'oidc':
+        raise RuntimeError('Non-local environments require AUTH_MODE=oidc with verified token validation')
+    if os.getenv('APP_ENV', 'local').lower() == 'production' and not DB_URL.startswith('postgresql'):
+        raise RuntimeError('Production requires PostgreSQL')
     Base.metadata.create_all(engine)
     with SessionLocal() as db: seed(db)
     yield
@@ -114,6 +118,8 @@ def get_db():
     with SessionLocal() as db: yield db
 def identity(authorization: str | None=Header(None)):
     token=(authorization or "").removeprefix("Bearer ").strip()
+    if os.getenv('APP_ENV','local').lower() in ('pilot','production') and os.getenv('AUTH_MODE','demo') == 'demo':
+        raise HTTPException(503,'Demo authentication disabled outside local development')
     if os.getenv("AUTH_MODE","demo") != "demo":
         raise HTTPException(503,"OIDC mode requires configured verified JWT middleware")
     if token not in DEMO_TOKENS: raise HTTPException(401,"Invalid demo credential")
@@ -139,6 +145,13 @@ class TicketIn(BaseModel):
     subject:str=Field(min_length=4,max_length=250)
 @app.get("/health")
 def health(): return {"status":"ok","synthetic":True}
+@app.get("/ready")
+def ready(db: Session=Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1")).scalar_one()
+    except Exception:
+        raise HTTPException(503,"Database dependency unavailable")
+    return {"status":"ready"}
 @app.get("/metrics")
 def metrics(): return Response(generate_latest(),media_type=CONTENT_TYPE_LATEST)
 @app.get("/api/catalog")
@@ -192,8 +205,9 @@ def confirm(draft_id:str,data:ConfirmIn,db:Session=Depends(get_db),auth=Depends(
     if prev:
         if prev.draft_id!=draft_id: raise HTTPException(409,"Idempotency key reused for different draft")
         return {"order_id":prev.order_id,"status":"confirmed","replayed":True}
-    draft=db.get(Order,draft_id)
-    if not draft or draft.tenant_id!=auth[0] or draft.customer_id!=auth[2]: raise HTTPException(404,"Draft not found")
+    # Lock the draft first: concurrent confirmations with different keys serialize on PostgreSQL.
+    draft=db.execute(select(Order).where(Order.id==draft_id,Order.tenant_id==auth[0],Order.customer_id==auth[2]).with_for_update()).scalar_one_or_none()
+    if not draft: raise HTTPException(404,"Draft not found")
     if draft.status!="draft": raise HTTPException(409,"Draft already processed")
     if not secrets.compare_digest(draft.nonce_hash or "",hashlib.sha256(data.confirmation_nonce.encode()).hexdigest()): raise HTTPException(403,"Explicit confirmation nonce invalid")
     contract=price_for(db,auth,draft.product_id)
