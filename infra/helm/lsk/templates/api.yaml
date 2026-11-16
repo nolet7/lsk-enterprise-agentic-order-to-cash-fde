@@ -11,11 +11,21 @@ metadata:
   name: lsk-api
 spec:
   replicas: {{ .Values.replicas }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
   selector: {matchLabels: {app: lsk-api}}
   template:
     metadata:
       labels: {app: lsk-api}
     spec:
+      terminationGracePeriodSeconds: 40
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector: {matchLabels: {app: lsk-api}}
       serviceAccountName: {{ .Values.serviceAccount.name }}
       securityContext: {runAsNonRoot: true, runAsUser: 10001, seccompProfile: {type: RuntimeDefault}}
       containers:
@@ -32,11 +42,17 @@ spec:
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef: {name: {{ .Values.config.databaseUrlSecret }}, key: DATABASE_URL}
-        readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
-        livenessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 20}
+        startupProbe: {httpGet: {path: /health, port: http}, failureThreshold: 30, periodSeconds: 5}
+        readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10, timeoutSeconds: 3}
+        livenessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 20, timeoutSeconds: 3}
         resources:
 {{ toYaml .Values.resources | indent 10 }}
         securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: ["ALL"]}}
+        volumeMounts:
+        - {name: tmp, mountPath: /tmp}
+      volumes:
+      - name: tmp
+        emptyDir: {sizeLimit: 128Mi}
 ---
 apiVersion: v1
 kind: Service
