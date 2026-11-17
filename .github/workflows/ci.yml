@@ -3,22 +3,70 @@ on:
   push:
     branches: [main, poc, pilot, production]
   pull_request:
+
 jobs:
-  python:
+  unit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r services/api/requirements.txt
-      - run: python -m pytest -q
+      - name: Install application and test dependencies
+        run: python -m pip install -r services/api/requirements.txt
+      - name: Run synthetic unit tests
         working-directory: services/api
         env:
           AUTH_MODE: demo
+          APP_ENV: local
           DATABASE_URL: sqlite:///./test-ci.db
+        run: python -m pytest -q
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lsk
+          POSTGRES_PASSWORD: ci-only-not-production
+          POSTGRES_DB: lsk_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lsk -d lsk_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r services/api/requirements.txt
+      - name: Apply actual Alembic migrations against PostgreSQL
+        working-directory: services/api
+        env:
+          DATABASE_URL: postgresql+psycopg://lsk:ci-only-not-production@localhost:5432/lsk_test
+        run: alembic upgrade head
+      - name: Run tests against PostgreSQL
+        working-directory: services/api
+        env:
+          DATABASE_URL: postgresql+psycopg://lsk:ci-only-not-production@localhost:5432/lsk_test
+          AUTH_MODE: demo
+          APP_ENV: local
+        run: python -m pytest -q
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build non-root OCI image
+        run: docker build -f services/api/Dockerfile -t lsk-otc-api:ci .
+      - name: Confirm container image drops root privilege
+        run: |
+          test "$(docker image inspect lsk-otc-api:ci --format '{{.Config.User}}')" = "10001:10001"
   manifests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python -m compileall -q services/api/app
+      - name: Python syntax
+        run: python -m compileall -q services/api/app
