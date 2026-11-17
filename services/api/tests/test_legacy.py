@@ -1,5 +1,5 @@
 import os
-os.environ["DATABASE_URL"]="sqlite:///./test-lsk.db"
+os.environ.setdefault("DATABASE_URL","sqlite:///./test-lsk.db")
 from fastapi.testclient import TestClient
 from app.main import app
 def test_legacy_flow():
