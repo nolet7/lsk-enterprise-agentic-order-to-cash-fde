@@ -112,8 +112,21 @@ async def lifespan(app):
         raise RuntimeError('Non-local environments require AUTH_MODE=oidc with verified token validation')
     if os.getenv('APP_ENV', 'local').lower() == 'production' and not DB_URL.startswith('postgresql'):
         raise RuntimeError('Production requires PostgreSQL')
-    Base.metadata.create_all(engine)
-    with SessionLocal() as db: seed(db)
+    stage=os.getenv("APP_ENV","local").lower()
+    if stage in ("pilot","production"):
+        # Do not auto-create tables or seed synthetic demo tenants outside local development.
+        # An approved Alembic migration is an explicit release prerequisite.
+        try:
+            with engine.connect() as connection:
+                revision=connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+                if not revision:
+                    raise RuntimeError("No applied Alembic schema revision")
+        except Exception as exc:
+            raise RuntimeError("Database migrations are required before starting this stage") from exc
+    else:
+        Base.metadata.create_all(engine)
+        with SessionLocal() as db:
+            seed(db)
     yield
 app=FastAPI(title="LSK Order-to-Cash Legacy API",version="0.1.0",lifespan=lifespan)
 def get_db():
