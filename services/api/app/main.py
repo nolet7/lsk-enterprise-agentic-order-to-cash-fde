@@ -96,6 +96,8 @@ def now():
 def seed(db):
     if db.get(Product,"SUG-25"): return
     for p in [Product(id="SUG-25",name="Fine Granulated Cane Sugar 25kg",uom="bag"),Product(id="MOL-10",name="Food Grade Molasses 10L",uom="jug"),Product(id="SYR-20",name="Liquid Sugar Syrup 20L",uom="pail")]: db.add(p)
+    # Enforce fixture FK ordering on real PostgreSQL, where the products must exist first.
+    db.flush()
     for tenant,customer,scale in [("tenant-a","customer-a",1),("tenant-b","customer-b",2)]:
         for sku,price,qty in [("SUG-25",Decimal("38.50"),480),("MOL-10",Decimal("24.25"),130),("SYR-20",Decimal("42.75"),95)]:
             db.add(Contract(tenant_id=tenant,customer_id=customer,product_id=sku,unit_price=price*scale))
