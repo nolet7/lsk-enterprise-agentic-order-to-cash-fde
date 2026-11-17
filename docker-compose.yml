@@ -18,12 +18,12 @@ services:
       context: .
       dockerfile: services/api/Dockerfile
     env_file: .env
-    ports: ["18474:18474"]
+    ports: ["127.0.0.1:18474:18474"]
     depends_on:
       db: {condition: service_healthy}
   portal:
     image: nginx:alpine
-    ports: ["18473:80"]
+    ports: ["127.0.0.1:18473:80"]
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
     depends_on: [api]
